@@ -1,0 +1,17 @@
+sdk-version: 1.4.0
+name: bootstrap
+source: daml
+init-script: Main:loadTestData
+parties:
+  - Alice
+  - Bob
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies: 
+  - ../stripe/.daml/dist/stripe-0.0.1.dar
+  - ../main/.daml/dist/nyc5boro-0.0.1.dar
+sandbox-options:
+  - --wall-clock-time

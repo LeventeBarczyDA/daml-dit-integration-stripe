@@ -1,0 +1,89 @@
+module Main where
+
+import Daml.Script
+import Stripe.Seller 
+import Stripe.Payment
+import DA.Action (foldlA)
+import UserAdmin
+
+data StartupData = StartupData 
+  with 
+    organizer: Party 
+    userAdmin: Party 
+    pk: PkaKey
+    sk: PkaKey
+    domain: Text
+  deriving (Eq, Show)
+
+
+type Prices = [(Text, Text)]
+testPrices: Prices = [
+    ("Hoodie", "price_1HXMsqJ0h1833zHVCssWfaLn"),
+    ("Gaitor", "price_1HXMsWJ0h1833zHVovz52MsB"),
+--    ("Virtual", "price_1HXMrYJ0h1833zHVfGb0YpGg"),
+    ("ArmWarm", "price_1HXMrLJ0h1833zHVOcH3O5tJ"),
+    ("PinSet", "price_1HXMqjJ0h1833zHVE8jNVYzU"),
+    ("PinBagel", "price_1HXMqRJ0h1833zHVzHAb2GNg"),
+    ("PinSushi", "price_1HXMqAJ0h1833zHVsLgBpBeW"),
+    ("PinRamen", "price_1HXMpxJ0h1833zHVbatgdyX3"),
+    ("PinLobster", "price_1HXMpfJ0h1833zHVatJ5xbY6"),
+    ("FoodAdd", "price_1HXMpBJ0h1833zHVXJdSIJZR"),
+    ("Eat", "price_1HXMoJJ0h1833zHVnHGJbGlG"),
+    ("Bike", "price_1HXMo2J0h1833zHVuO5M5eaY"),
+    ("Jersey", "price_1HXMosJ0h1833zHVKa0r8QY2"),
+    ("Run", "price_1HXMnnJ0h1833zHVrgCditdY")
+  ]
+
+productionPrices: Prices = [
+    ("Hoodie", "price_1HXMsqJ0h1833zHVCssWfaLn"),
+    ("Gaitor", "price_1HXMsWJ0h1833zHVovz52MsB"),
+--    ("Virtual", "price_1HXMrYJ0h1833zHVfGb0YpGg"),
+    ("ArmWarm", "price_1HXMrLJ0h1833zHVOcH3O5tJ"),
+    ("PinSet", "price_1HXMqjJ0h1833zHVE8jNVYzU"),
+    ("PinBagel", "price_1HXMqRJ0h1833zHVzHAb2GNg"),
+    ("PinSushi", "price_1HXMqAJ0h1833zHVsLgBpBeW"),
+    ("PinRamen", "price_1HXMpxJ0h1833zHVbatgdyX3"),
+    ("PinLobster", "price_1HXMpfJ0h1833zHVatJ5xbY6"),
+    ("FoodAdd", "price_1HXMpBJ0h1833zHVXJdSIJZR"),
+    ("Eat", "price_1HXMoJJ0h1833zHVnHGJbGlG"),
+    ("Bike", "price_1HXMo2J0h1833zHVuO5M5eaY"),
+    ("Jersey", "price_1HXMosJ0h1833zHVKa0r8QY2"),
+    ("Run", "price_1HXMnnJ0h1833zHVrgCditdY")
+  ]
+
+loadData: Prices -> StartupData -> Script()
+loadData ps sd = do 
+  submit sd.userAdmin 
+    $ createCmd UserAdmin 
+        with 
+          userAdmin = sd.userAdmin 
+          organizer = Some sd.organizer 
+
+  secretKey <- submit sd.organizer
+    $ createCmd SellerSecretKey 
+        with 
+          userAdmin = sd.userAdmin
+          seller = sd.organizer 
+          sk = sd.sk 
+    
+  onboardRequest <- submit sd.organizer 
+    $ exerciseCmd secretKey RequestOnboarding
+      with 
+        pk = sd.pk 
+        successUrl = "https://" <> sd.domain <> "/#/app/profile"
+        cancelUrl = "https://" <> sd.domain <> "/#/app/register" 
+
+  sellerCid0 <- submit sd.userAdmin 
+    $ exerciseCmd onboardRequest 
+        OnboardSeller
+
+  foldlA (\sellerCid (itemName, priceId) -> 
+    submit sd.organizer 
+      $ exerciseCmd sellerCid 
+          AddPrice with ..) sellerCid0 ps
+
+  return ()
+
+loadTestData = loadData testPrices
+loadProductionData = loadData productionPrices
+      
