@@ -1,0 +1,16 @@
+sdk-version: 1.4.0
+name: stripe
+source: daml/Modules.daml
+parties:
+  - Alice
+  - Bob
+exposed-modules:
+  - Stripe.Seller
+  - Stripe.Payment
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+sandbox-options:
+  - --wall-clock-time

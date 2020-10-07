@@ -1,0 +1,28 @@
+## Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+## SPDX-License-Identifier: Apache-2.0
+
+catalog:
+    name: dabl-integration-stripe
+    group_id: com.digitalasset
+    version: 0.2.0
+    short_description: Stripe Integrations
+    description: Stripe Checkout
+    release_date: 2020-09-11
+    author: Digital Asset (Switzerland) GmbH
+    license: Apache-2.0
+    tags: [ integration ]
+subdeployments:
+    - dabl-integration-stripe.dar
+integration_types:
+    - id: com.projectdabl.integrations.stripe.checkout
+      name: Stripe Checkout
+      description: Creates a Stripe Checkout Session.
+      entrypoint: core_int.integration_stripe_checkout:integration_stripe_checkout_main
+      runtime: python-direct
+      fields: []
+    - id: com.projectdabl.integrations.stripe.checkout_webhook
+      name: Stripe checkout completions
+      description: Closes PaymentSessions once completed.
+      entrypoint: core_int.integration_stripe_checkout:integration_stripe_checkout_webhook_main
+      runtime: python-direct
+      fields: []

@@ -1,0 +1,102 @@
+daml 1.2 
+module Stripe.Payment where 
+
+type PkaKey = Text
+type PriceId = Text 
+type PaymentSessionId = Text 
+type Url = Text
+type PaymentIntentId = Text
+
+template Offer 
+  with 
+    seller: Party 
+    items: [(Text, PriceId)]
+    buyer: Party 
+    pk: PkaKey 
+    successUrl: Url
+    cancelUrl: Url 
+  where 
+    signatory seller 
+
+    controller buyer can 
+      Accept: ContractId Bill 
+        do 
+          create Bill with ..
+
+template Bill 
+  with 
+    seller: Party 
+    items: [(Text, PriceId)] 
+    buyer: Party 
+    pk: PkaKey 
+    successUrl: Url
+    cancelUrl: Url 
+  where 
+    signatory buyer, seller 
+
+    controller seller can --Integrations
+      StartSession: ContractId PaymentSession
+        with 
+          paymentSessionId: PaymentSessionId 
+          intentId: PaymentIntentId
+        do 
+          create PaymentSession with ..
+
+      FailStartSession: ContractId PaymentSessionFailure
+        with 
+          httpStatusCode: Int
+          httpResponseBody: Text
+        do 
+          create PaymentSessionFailure 
+            with ..
+
+template PaymentSession 
+  with 
+    buyer: Party 
+    seller: Party 
+    pk: PkaKey
+    paymentSessionId: PaymentSessionId 
+    items: [(Text, PriceId)]
+    intentId: PaymentIntentId
+    successUrl: Url 
+    cancelUrl: Url 
+  where 
+    signatory buyer, seller 
+
+    key (seller, paymentSessionId): (Party, PaymentSessionId)
+    maintainer key._1
+
+    controller seller can --Integration
+      Succeed: ContractId Receipt 
+        do create Receipt with ..
+
+      Cancel: ()
+        do pure ()
+
+template Receipt 
+  with 
+    buyer: Party 
+    seller: Party 
+    paymentSessionId: PaymentSessionId 
+    items: [(Text, PriceId)]
+    intentId: PaymentIntentId 
+  where
+    signatory buyer, seller
+
+template PaymentSessionFailure 
+  with 
+    items: [(Text, PriceId)]
+    pk: PkaKey
+    seller: Party 
+    buyer: Party 
+    httpStatusCode: Int 
+    httpResponseBody: Text 
+    successUrl: Url 
+    cancelUrl: Url 
+  where 
+    signatory buyer, seller
+
+    controller seller can
+      Retry: ContractId Bill
+        do 
+          create Bill with ..

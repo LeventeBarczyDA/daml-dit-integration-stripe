@@ -1,0 +1,4 @@
+daml_dit_api==0.0.8
+dazl==7.0.2
+./lib/PyYAML-5.3.1.tar.gz
+stripe>=2.48.0,<3.0

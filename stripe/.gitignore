@@ -1,0 +1,8 @@
+/.daml
+/dist
+/*.dit
+/.DS_Store
+/ui/node_modules
+/ui/build
+/daml.js
+/deploy

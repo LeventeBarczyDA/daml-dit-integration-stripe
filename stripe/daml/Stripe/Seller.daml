@@ -1,0 +1,136 @@
+daml 1.2 
+module Stripe.Seller where 
+
+import DA.List
+import DA.Optional
+import Stripe.Payment
+
+template Seller
+  with
+    seller: Party 
+    userAdmin: Party 
+    public: Optional Party 
+    pk: PkaKey 
+    successUrl: Url
+    cancelUrl: Url 
+    prices: [(Text, PriceId)]
+  where
+    signatory userAdmin, seller 
+    observer public 
+    ensure unique $ fst <$> prices
+
+    key seller: Party 
+    maintainer key
+
+    controller seller can 
+      AddPrice: ContractId Seller 
+        with 
+          itemName: Text
+          priceId: PriceId 
+        do 
+          create this with prices = (itemName, priceId) :: prices
+
+      DeletePrice: ContractId Seller 
+        with 
+          itemName: Text 
+        do 
+          create this 
+            with prices = deleteBy (\a b -> fst a == fst b) (itemName, "") prices
+
+      ChangeUrls: ContractId Seller
+        with 
+          newSuccessUrl: Url 
+          newCancelUrl: Url 
+        do 
+          create this 
+            with 
+              successUrl = newSuccessUrl 
+              cancelUrl = newCancelUrl
+
+      MakePublic: ContractId Seller 
+        with 
+          newPublic: Party 
+        do create this with public = Some newPublic 
+
+      MakePrivate: ContractId Seller 
+        do create this with public = None
+
+      nonconsuming LookupPrice: Optional (PkaKey, PriceId) 
+        with 
+          itemName: Text
+        do 
+          let 
+            optKv = find ((==) itemName . fst) prices
+          case optKv of
+            Some kv -> pure $ Some (pk, kv._2)
+            None -> pure $ None
+
+      nonconsuming OfferToBuyer: ContractId Offer
+        with 
+          itemNames: [Text]
+          buyer: Party
+        do 
+          let 
+            optItems = map (\name ->
+              (find (\(k,v) -> 
+                name == k) prices)) itemNames
+          assert $ notElem None optItems
+          create Offer 
+            with 
+              items = catOptionals optItems
+              ..
+
+    controller seller can 
+      RollPublicKey: ContractId Seller 
+        with 
+          newPk: PkaKey 
+        do 
+          create this with pk = newPk
+
+template SellerSecretKey
+  with  
+    seller: Party 
+    userAdmin: Party 
+    sk: PkaKey 
+  where 
+    signatory seller 
+
+    key seller: Party 
+    maintainer key 
+
+    controller seller can 
+      nonconsuming RequestOnboarding: ContractId SellerOnboardRequest
+        with 
+          successUrl: Url
+          cancelUrl: Url 
+          pk: PkaKey
+        do create SellerOnboardRequest with ..
+
+      RollKeys: (ContractId SellerSecretKey, ContractId Seller)
+        with 
+          newSk: PkaKey
+          newPk: PkaKey 
+        do 
+          nextSk <- create this with sk = newSk 
+          nextPk <- exerciseByKey @Seller seller RollPublicKey
+            with newPk
+          return (nextSk, nextPk)
+
+template SellerOnboardRequest 
+  with 
+    seller: Party 
+    userAdmin: Party 
+    pk: PkaKey
+    successUrl: Url
+    cancelUrl: Url 
+  where 
+    signatory seller 
+
+    controller userAdmin can 
+      OnboardSeller: ContractId Seller 
+        do 
+          create Seller 
+            with 
+              prices = []
+              public = None
+              ..
